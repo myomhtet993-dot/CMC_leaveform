@@ -40,9 +40,18 @@ import {
 // --- Firebase Initialization (SECURE VERSION) ---
 let firebaseConfig;
 
+// Access globals via 'window' to avoid ESLint no-undef errors
+const canvasConfig = window.__firebase_config;
+const canvasAppId = window.__app_id;
+const canvasAuthToken = window.__initial_auth_token;
+
 // 1. Canvas Environment (ဒီမှာ စမ်းသပ်ဖို့)
-if (typeof __firebase_config !== 'undefined') {
-  firebaseConfig = JSON.parse(__firebase_config);
+if (canvasConfig) {
+  try {
+    firebaseConfig = JSON.parse(canvasConfig);
+  } catch (e) {
+    console.error("Error parsing canvas config", e);
+  }
 } 
 // 2. Local/GitHub/Production Environment (အပြင်မှာသုံးဖို့)
 else {
@@ -59,12 +68,12 @@ else {
 
 // Initialize Firebase
 // Key မရှိရင် Error မတက်အောင် စစ်ပေးထားပါတယ်
-const app = initializeApp(firebaseConfig.apiKey ? firebaseConfig : { apiKey: "dummy", appId: "dummy" }); // Prevents crash if keys missing
+const app = initializeApp(firebaseConfig && firebaseConfig.apiKey ? firebaseConfig : { apiKey: "dummy", appId: "dummy" });
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 // App ID
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-leave-app';
+const appId = canvasAppId || 'school-leave-app';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -93,14 +102,14 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (!firebaseConfig.apiKey) {
-            console.warn("Firebase Keys missing! Please check .env file.");
+        if (!firebaseConfig || !firebaseConfig.apiKey) {
+            console.warn("Firebase Keys missing! Please check .env file or Netlify settings.");
             setLoading(false);
             return;
         }
 
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
+        if (canvasAuthToken) {
+          await signInWithCustomToken(auth, canvasAuthToken);
         } else {
           await signInAnonymously(auth);
         }
